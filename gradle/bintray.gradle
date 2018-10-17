@@ -1,0 +1,26 @@
+apply plugin: 'com.jfrog.bintray'
+
+def getBintrayUsername() {
+    return properties.get('bintrayUsername', System.getenv('BINTRAY_USERNAME'))
+}
+
+def getBintrayApiKey() {
+    return properties.get('bintrayApiKey',  System.getenv('BINTRAY_API_KEY'))
+}
+
+bintray {
+    user = getBintrayUsername()
+    key = getBintrayApiKey()
+    configurations = ['archives']
+    override = true
+    pkg {
+        repo = bintrayRepo
+        name = bintrayName
+        licenses = bintrayLicenses
+        vcsUrl = scmUrl
+        version {
+            name = VERSION
+            released = new Date()
+        }
+    }
+}

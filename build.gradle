@@ -10,6 +10,8 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:3.2.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
     }
 }
 
@@ -24,4 +26,25 @@ allprojects {
 
 task clean(type: Delete) {
     delete rootProject.buildDir
+}
+
+ext {
+    bintrayRepo = 'maven'
+    bintrayName = 'com.jayway.rplidar:rplidar-android-things-api'
+    bintrayLicenses = ['MIT']
+    scmUrl = 'https://github.com/jayway/rplidar-android-things-api.git'
+    scmConnection = 'https://github.com/jayway/rplidar-android-things-api'
+    scmDeveloperConnection = 'scm:git:git@github.com:jayway/rplidar-android-things-api.git'
+
+    developerId = 'jacob.ferm@jayway.com'
+    developerName = 'Jacob Ferm'
+
+    projectLicenses = {
+        license {
+            name 'MIT License'
+            url 'https://github.com/jayway/rplidar-android-things-api/blob/master/LICENSE'
+            distribution 'repo'
+        }
+    }
+
 }
