@@ -6,7 +6,6 @@ import com.jayway.rplidarapi.model.DeviceInfo
 import com.jayway.rplidarapi.model.ScanData
 import java.util.concurrent.atomic.AtomicBoolean
 
-
 private const val MAX_MOTOR_PWM = 1023
 
 class RPLidarService constructor(usbManager: UsbManager) {
@@ -58,24 +57,21 @@ class RPLidarService constructor(usbManager: UsbManager) {
 
         Thread {
             isScanning.set(true)
-            var scan = mutableListOf<ScanData>()
             while (isScanning.get()) {
-                val data = connector.receiveScanData()
-                for (i in 0 until data.size) {
-                    if (scan.isEmpty() && !data[i].startBitSet) continue
-                    if (!scan.isEmpty() && data[i].startBitSet) {
-                        responseHandler.invoke(scan.sortedBy { it.angle })
-                        scan = mutableListOf()
-                    }
-                    scan.add(data[i])
-                    if (scan.size > 8192) scan = mutableListOf()
-                }
+                val scan = mutableListOf<ScanData>()
+                // Fetch multiple sets of scan data in case some of it is corrupted
+                scan.addAll(connector.receiveScanData())
+                scan.addAll(connector.receiveScanData())
+                scan.addAll(connector.receiveScanData())
+                scan.addAll(connector.receiveScanData())
+                responseHandler.invoke(scan.sortedBy { it.angle })
             }
         }.start()
     }
 
     fun close() {
         isScanning.set(false)
+        connector.setMotorSpeed(0)
         connector.close()
     }
 

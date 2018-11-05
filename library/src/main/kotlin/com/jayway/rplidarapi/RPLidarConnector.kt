@@ -45,6 +45,7 @@ class RPLidarConnector constructor(usbManager: UsbManager) {
         }
         stop()
         Thread.sleep(100)
+        cleanJunkData()
     }
 
     fun getDeviceInfo(): DeviceInfo {
@@ -70,6 +71,7 @@ class RPLidarConnector constructor(usbManager: UsbManager) {
     }
 
     fun startScan() {
+        Log.i(TAG, "Starting scan")
         stop()
         sendCommand(RPLidarCommand.SCAN)
         receiveResponseHeader()
@@ -82,7 +84,6 @@ class RPLidarConnector constructor(usbManager: UsbManager) {
     fun close() {
         stop()
         serialConnection.close()
-
     }
 
     fun stop() {
@@ -90,35 +91,40 @@ class RPLidarConnector constructor(usbManager: UsbManager) {
         Thread.sleep(5) // No response is expected. Api recommends waiting for >1 ms
     }
 
-    fun receiveScanData(size: Int = 128): List<ScanData> {
-        val list = mutableListOf<ScanData>()
+    fun receiveScanData(size: Int = 256): List<ScanData> {
+        val localBuffer = mutableListOf<ScanData>()
+        val data = ByteArray(size * SCAN_DATA_SIZE_BYTES)
+        var readBytes = 0
 
-        while (list.size < size) {
-            val data = ByteArray(size * SCAN_DATA_SIZE_BYTES)
-            serialConnection.syncRead(data, 100)
+        while (readBytes == 0) {
+            readBytes = serialConnection.syncRead(data, 0)
+        }
+        var pos = 0
+        val bytes = ByteArray(5)
 
-            if (data.all { it == 0.toByte() }) return list // No data received
+        for (i in 0 until readBytes) {
+            if (pos == 0 && startBitAndStartCheckBitAreNotInverse(data[i])) {
+                continue
+            }
+            if (pos == 1 && checkBitIsNotOne(data[i])) {
+                pos = 0
+                continue
+            }
+            bytes[pos++] = data[i]
 
-            var pos = 0
-            val bytes = ByteArray(5)
-
-            for (i in 0 until data.size) {
-                if (pos == 0 && startBitAndStartCheckBitAreNotInverse(data[i])) {
-                    continue
-                }
-                if (pos == 1 && checkBitIsNotOne(data[i])) {
-                    pos = 0
-                    continue
-                }
-                bytes[pos++] = data[i]
-
-                if (pos == 5) {
-                    pos = 0
-                    list.add(ScanData.from(bytes))
-                }
+            if (pos == 5) {
+                pos = 0
+                localBuffer.add(ScanData.from(bytes))
             }
         }
-        return list
+        return localBuffer
+    }
+
+    private fun cleanJunkData() {
+        Log.d(TAG, "Trying to clean data stream")
+        val data = ByteArray(128 * SCAN_DATA_SIZE_BYTES)
+        val bytes = serialConnection.syncRead(data, 100)
+        Log.d(TAG, "Cleanup result: $bytes bytes: ${data.sum()}")
     }
 
     private fun startBitAndStartCheckBitAreNotInverse(byte: Byte) = ((byte and 2).toInt() shr 1) == (byte and 1).toInt()
