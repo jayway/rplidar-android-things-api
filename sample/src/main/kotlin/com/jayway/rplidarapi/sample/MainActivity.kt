@@ -18,6 +18,7 @@ class MainActivity : Activity() {
 
         val usbManager = this.getSystemService(Context.USB_SERVICE) as UsbManager
         rpLidarService = RPLidarService(usbManager)
+        rpLidarService.connect()
 
         Log.i(TAG, "Fetching RPLidar device health status")
         val deviceHealthStatus = rpLidarService.getDeviceHealthStatus()

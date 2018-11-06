@@ -1,78 +1,83 @@
 package com.jayway.rplidarapi
 
 import android.hardware.usb.UsbManager
-import com.jayway.rplidarapi.model.DeviceHealthStatus
-import com.jayway.rplidarapi.model.DeviceInfo
 import com.jayway.rplidarapi.model.ScanData
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val MAX_MOTOR_PWM = 1023
 
-class RPLidarService constructor(usbManager: UsbManager) {
+class RPLidarService constructor(private val usbManager: UsbManager) {
 
-    private val connector = RPLidarConnector(usbManager)
+    private var connector: RPLidarConnector? = null
     private val isScanning = AtomicBoolean(false)
+    private var scanningThread: Thread? = null
 
-
-    fun getDeviceInfo(): DeviceInfo {
-        return connector.getDeviceInfo()
+    fun connect() {
+        if (connector == null) connector = RPLidarConnector(usbManager)
     }
-
-    fun getDeviceHealthStatus(): DeviceHealthStatus {
-        return connector.getDeviceHealthStatus()
-    }
+    
+    fun getDeviceInfo() = connector?.getDeviceInfo()
+    fun getDeviceHealthStatus() = connector?.getDeviceHealthStatus()
 
     fun setMotorSpeed(speed: Int) {
         if (speed > MAX_MOTOR_PWM || speed < 0) {
             throw IllegalArgumentException("Invalid motor speed: $speed. Please specify a value between 0 and $MAX_MOTOR_PWM")
         }
-        connector.setMotorSpeed(speed)
+        connector?.setMotorSpeed(speed)
     }
 
     fun stopScan() {
         isScanning.set(false)
-        connector.stop()
+        connector?.stop()
     }
 
     fun getSingleScanData(): List<ScanData> {
-        connector.startScan()
+        connector?.startScan()
 
         val scan = mutableListOf<ScanData>()
 
         loop@ while (scan.size < 8192) {
-            val data = connector.receiveScanData()
+            val data = connector?.receiveScanData() ?: emptyList()
             for (i in 0 until data.size) {
                 if (scan.isEmpty() && !data[i].startBitSet) continue
                 if (!scan.isEmpty() && data[i].startBitSet) break@loop
                 scan.add(data[i])
             }
         }
-        connector.stop()
+        connector?.stop()
         return scan.sortedBy { it.angle }
     }
 
     fun startContinuousScan(responseHandler: (scanData: List<ScanData>) -> Unit) {
         if (isScanning.get()) return
-        connector.startScan()
+        connector?.startScan()
 
-        Thread {
+        scanningThread = Thread {
             isScanning.set(true)
             while (isScanning.get()) {
                 val scan = mutableListOf<ScanData>()
                 // Fetch multiple sets of scan data in case some of it is corrupted
-                scan.addAll(connector.receiveScanData())
-                scan.addAll(connector.receiveScanData())
-                scan.addAll(connector.receiveScanData())
-                scan.addAll(connector.receiveScanData())
+                scan.addAll(receiveScanData())
+                scan.addAll(receiveScanData())
+                scan.addAll(receiveScanData())
+                scan.addAll(receiveScanData())
                 responseHandler.invoke(scan.sortedBy { it.angle })
             }
-        }.start()
+        }
+        scanningThread?.start()
+    }
+
+    private fun receiveScanData(): List<ScanData> {
+        return if (isScanning.get()) connector?.receiveScanData() ?: emptyList()
+        else emptyList()
     }
 
     fun close() {
         isScanning.set(false)
-        connector.setMotorSpeed(0)
-        connector.close()
+        scanningThread?.join()
+        connector?.setMotorSpeed(0)
+        connector?.close()
+        connector = null
     }
 
 }

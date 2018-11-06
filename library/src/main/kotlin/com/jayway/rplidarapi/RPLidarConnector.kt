@@ -19,7 +19,9 @@ private const val DEVICE_INFO_DATA_SIZE: Int = 20
 private const val DEVICE_HEALTH_STATUS_DATA_SIZE: Int = 3
 private const val SCAN_DATA_SIZE_BYTES = 5
 
-class RPLidarConnector constructor(usbManager: UsbManager) {
+class RPLidarConnector constructor(
+        usbManager: UsbManager
+) {
 
     private val serialConnection = createSerialConnection(usbManager)
 
@@ -29,7 +31,7 @@ class RPLidarConnector constructor(usbManager: UsbManager) {
 
     private fun createSerialConnection(usbManager: UsbManager): UsbSerialDevice {
         val device = usbManager.deviceList.values.find { it.vendorId == 0x10c4 && it.productId == 0xea60 }!!
-        Log.d(TAG, "Device found: " + device.toString())
+        Log.d(TAG, "Device found: $device")
         val connection = usbManager.openDevice(device)
         return UsbSerialDevice.createUsbSerialDevice(device, connection)!!
     }
@@ -71,7 +73,7 @@ class RPLidarConnector constructor(usbManager: UsbManager) {
     }
 
     fun startScan() {
-        Log.i(TAG, "Starting scan")
+        Log.d(TAG, "Starting scan")
         stop()
         sendCommand(RPLidarCommand.SCAN)
         receiveResponseHeader()
@@ -97,7 +99,7 @@ class RPLidarConnector constructor(usbManager: UsbManager) {
         var readBytes = 0
 
         while (readBytes == 0) {
-            readBytes = serialConnection.syncRead(data, 0)
+            readBytes = serialConnection.syncRead(data, 200)
         }
         var pos = 0
         val bytes = ByteArray(5)
@@ -124,7 +126,7 @@ class RPLidarConnector constructor(usbManager: UsbManager) {
         Log.d(TAG, "Trying to clean data stream")
         val data = ByteArray(128 * SCAN_DATA_SIZE_BYTES)
         val bytes = serialConnection.syncRead(data, 100)
-        Log.d(TAG, "Cleanup result: $bytes bytes: ${data.sum()}")
+        Log.d(TAG, "Cleanup result: $bytes bytes")
     }
 
     private fun startBitAndStartCheckBitAreNotInverse(byte: Byte) = ((byte and 2).toInt() shr 1) == (byte and 1).toInt()
