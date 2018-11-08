@@ -1,10 +1,13 @@
 package com.jayway.rplidarapi
 
 import android.hardware.usb.UsbManager
+import android.util.Log
 import com.jayway.rplidarapi.model.ScanData
+import java.lang.Exception
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val MAX_MOTOR_PWM = 1023
+private val TAG = RPLidarService::class.java.simpleName
 
 class RPLidarService constructor(private val usbManager: UsbManager) {
 
@@ -12,8 +15,16 @@ class RPLidarService constructor(private val usbManager: UsbManager) {
     private val isScanning = AtomicBoolean(false)
     private var scanningThread: Thread? = null
 
-    fun connect() {
-        if (connector == null) connector = RPLidarConnector(usbManager)
+    fun connect(): Boolean {
+        return try {
+            if (connector == null) {
+                connector = RPLidarConnector(usbManager)
+                true
+            } else false
+        } catch (e: Exception) {
+            Log.e(TAG, "Unable to create Lidar connection", e)
+            false
+        }
     }
     
     fun getDeviceInfo() = connector?.getDeviceInfo()
